@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.4.0 — 2026-11-11
+
+Less flash wear and less mobile data.
+
+- The collector buffers its rows in RAM (`/tmp/glqos`) and appends them to `/data/glqos` every
+  5 minutes, at midnight and on stop, instead of every second, so it no longer keeps the flash busy
+  on its own. A power cut loses at most the last 5 minutes. New option `main.flush_s`.
+  Note: most writes to that partition come from the stock firmware itself (hostapd runs in debug
+  mode and logs every Wi-Fi frame to `/data/vendor/wifi/`), not from glqos.
+- The dashboard reads the buffer too, so live and history views are unchanged.
+- The 5 Hz ping uses 8-byte payloads (36-byte packets instead of 84): about 0.9 GB per month of
+  mobile data instead of 2.2 GB if the router runs around the clock. RTT, jitter and loss are measured
+  the same way.
+
 ## 1.3.1 — 2026-11-11
 
 - `glqos`: restarting the service no longer leaves the previous `ping` running. Each restart

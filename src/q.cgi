@@ -2,8 +2,16 @@
 # /cgi-bin/q?since=TS            raw rows newer than TS (live polling)
 # /cgi-bin/q?from=A&to=B&step=S  rows in [A,B], aggregated per S seconds (S=1: raw)
 D=/data/glqos
-# print one day of data, gzip-compressed (past days) or not (today)
-day() { if [ -r "$D/$1.csv" ]; then cat "$D/$1.csv"; elif [ -r "$D/$1.csv.gz" ]; then zcat "$D/$1.csv.gz"; fi; }
+BUF=/tmp/glqos/buf.csv
+# print one day of data, gzip-compressed (past days) or not, plus the rows still in the
+# collector's RAM buffer
+day() {
+	if [ -r "$D/$1.csv" ]; then cat "$D/$1.csv"; elif [ -r "$D/$1.csv.gz" ]; then zcat "$D/$1.csv.gz"; fi
+	[ "$(cat /tmp/glqos/buf.day 2>/dev/null)" = "$1" ] && cat "$BUF" 2>/dev/null
+}
+# keep strictly increasing timestamps: drops the header and the duplicates a read can see
+# while the buffer is being flushed
+mono='$1 ~ /^[0-9]+$/ && $1 > lt { lt = $1; print }'
 
 echo "Content-Type: text/plain; charset=utf-8"
 echo "Cache-Control: no-store"
@@ -17,9 +25,11 @@ for kv in $(echo "$QUERY_STRING" | tr '&' ' '); do
 done
 
 if [ -n "$since" ]; then
-	today="$D/$(date +%Y-%m-%d).csv"
+	today=$(date +%Y-%m-%d)
 	{ [ $(( $(date +%s) - since )) -gt 60 ] && day "$(date -d @$(( $(date +%s) - 86400 )) +%Y-%m-%d)" | tail -n 3600
-	  tail -n 3600 "$today" 2>/dev/null; } | awk -F, -v s="$since" '$1 ~ /^[0-9]+$/ && $1 > s'
+	  { tail -n 3600 "$D/$today.csv" 2>/dev/null
+	    [ "$(cat /tmp/glqos/buf.day 2>/dev/null)" = "$today" ] && cat "$BUF" 2>/dev/null; } | tail -n 3600
+	} | awk -F, -v lt="$since" "$mono"
 	exit 0
 fi
 
@@ -36,12 +46,12 @@ done
 [ -n "$files" ] || exit 0
 
 if [ "$step" -le 1 ]; then
-	for f in $files; do day $f; done | awk -F, -v a="$from" -v b="$to" '$1 ~ /^[0-9]+$/ && $1 >= a && $1 <= b'
+	for f in $files; do day $f; done | awk -F, -v lt="$((from - 1))" "$mono" | awk -F, -v b="$to" '$1 <= b'
 	exit 0
 fi
 
 # Aggregation: categorical = last value, measures = mean, ping counts = sum, extremes = min/max.
-for f in $files; do day $f; done | awk -F, -v a="$from" -v b="$to" -v st="$step" '
+for f in $files; do day $f; done | awk -F, -v lt="$((from - 1))" "$mono" | awk -F, -v a="$from" -v b="$to" -v st="$step" '
 BEGIN { OFS = "," }
 function flush(   k, out) {
 	if (bk == "") return

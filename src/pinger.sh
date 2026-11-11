@@ -15,7 +15,7 @@ stop() {
 }
 trap stop TERM INT
 while :; do
-	ping -i 0.2 -W 1 "$TARGET" 2>/dev/null | awk '
+	ping -i 0.2 -W 1 -s 8 "$TARGET" 2>/dev/null | awk '
 	function flush() {
 		if (cur == "") return
 		f = "/tmp/glqos/ping.sec"

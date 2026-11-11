@@ -20,7 +20,8 @@ Projet indépendant, sans lien avec GL.iNet ni Quectel.
   techno (LTE / NR NSA), cellule de service (bande, PCI, EARFCN, eNB, TAC), RSRP / RSRQ / SINR / RSSI / CQI /
   puissance d'émission, RSRP et SINR par antenne (4 chaînes de réception, LTE et NR), chaque porteuse agrégée,
   température du modem.
-- **Ping à 5 Hz** vers une cible réglable : RTT, gigue, perte (déduite des trous de séquence).
+- **Ping à 5 Hz** vers une cible réglable : RTT, gigue, perte (déduite des trous de séquence). Paquets
+  minimaux (36 octets) : environ 31 Mo de data mobile par jour, 0,9 Go par mois si le routeur tourne en permanence.
 - **Débit écoulé** d'après les compteurs rmnet, état de la session data, opérateur (MCC-MNC), SIM active.
 - **Dashboard en direct** (`http://<IP LAN du routeur>:8088/`), rafraîchi chaque seconde, sans dépendance
   externe (fonctionne quand le lien est coupé), thèmes clair et sombre :
@@ -32,6 +33,8 @@ Projet indépendant, sans lien avec GL.iNet ni Quectel.
     et synthèse par opérateur ;
   - une explication derrière chaque libellé. Fenêtres de 2 minutes à 7 jours.
 - **Historique** dans `/data/glqos` : un CSV par jour, jours passés compressés en gzip (~4 Mo/jour au lieu de ~19), 30 jours par défaut.
+  Les lignes sont tamponnées en RAM et écrites sur la flash toutes les 5 minutes (et à l'arrêt) ; une
+  coupure de courant perd au plus les 5 dernières minutes.
 - **Survit aux mises à jour du firmware** : les fichiers sont déclarés dans `/lib/upgrade/keep.d`, que la mise à
   jour A/B de GL (`abfota_update`) restaure ; l'historique est sur `/data`, que les mises à jour n'effacent pas.
 
@@ -88,6 +91,7 @@ Elle n'a pas été testée avec la bascule de GL activée.
 | `main.listen` | IP LAN | adresse d'écoute d'uhttpd |
 | `main.ping_target` | `8.8.8.8` | cible du ping à 5 Hz |
 | `main.retention_days` | `30` | jours d'historique conservés |
+| `main.flush_s` | `300` | secondes entre deux écritures du tampon RAM sur la flash |
 | `simguard.down_s` | `30` | secondes sans réponse ping avant bascule |
 | `simguard.calm_s` | `120` | secondes de bonne santé avant d'endormir la SIM de secours |
 | `simguard.check_s` | `60` | fréquence de vérification de l'état de la SIM de secours |

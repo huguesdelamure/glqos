@@ -19,7 +19,8 @@ Not affiliated with GL.iNet or Quectel.
 - **1 Hz radio sampling** in a single AT call (`AT+QENG`, `QCAINFO`, `QRSRP`, `QSINR`; `QTEMP` every 10 s):
   RAT (LTE / NR NSA), serving cell (band, PCI, EARFCN, eNB, TAC), RSRP / RSRQ / SINR / RSSI / CQI / Tx power,
   per-antenna RSRP and SINR (4 RX chains, LTE and NR), every aggregated carrier, modem temperature.
-- **5 Hz ping** to a configurable target: RTT, jitter, loss (from sequence gaps).
+- **5 Hz ping** to a configurable target: RTT, jitter, loss (from sequence gaps). Minimal packets
+  (36 bytes): about 31 MB of mobile data per day, 0.9 GB per month if the router runs around the clock.
 - **Carried throughput** from the rmnet counters, data session state, operator (MCC-MNC), active SIM.
 - **Live dashboard** (`http://<router LAN IP>:8088/`), refreshed every second, no external dependency
   (works when the uplink is down), light and dark themes:
@@ -30,6 +31,8 @@ Not affiliated with GL.iNet or Quectel.
     outages, reconnections, operator switches), per-cell statistics and a per-operator summary;
   - an explanation behind every label. Ranges from 2 minutes to 7 days.
 - **History** in `/data/glqos`: one CSV per day, past days gzip-compressed (~4 MB/day instead of ~19), 30 days by default.
+  Rows are buffered in RAM and written to flash every 5 minutes (and on stop); a power cut loses at
+  most the last 5 minutes.
 - **Survives firmware upgrades**: files are declared in `/lib/upgrade/keep.d`, which GL's A/B upgrade
   (`abfota_update`) restores; history lives on `/data`, which upgrades do not wipe.
 
@@ -84,6 +87,7 @@ failover itself. It has not been tested with GL's failover enabled.
 | `main.listen` | LAN IP | address uhttpd binds to |
 | `main.ping_target` | `8.8.8.8` | 5 Hz ping target |
 | `main.retention_days` | `30` | days of history kept |
+| `main.flush_s` | `300` | seconds between writes of the RAM buffer to flash |
 | `simguard.down_s` | `30` | seconds without ping reply before failing over |
 | `simguard.calm_s` | `120` | seconds of good health before putting the standby SIM to sleep |
 | `simguard.check_s` | `60` | how often the standby SIM's state is re-checked |

@@ -7,6 +7,22 @@ RETENTION=$(uci -q get glqos.main.retention_days); RETENTION=${RETENTION:-30}
 HEADER="ts,mode,lte_band,lte_earfcn,lte_pci,lte_cellid,lte_tac,lte_dlbw,lte_rsrp,lte_rsrq,lte_rssi,lte_sinr,lte_cqi,lte_txpwr,nr_band,nr_arfcn,nr_pci,nr_bw,nr_rsrp,nr_rsrq,nr_sinr,ca,ca_lte,ca_nr,cc,lte_rsrp_a0,lte_rsrp_a1,lte_rsrp_a2,lte_rsrp_a3,lte_sinr_a0,lte_sinr_a1,lte_sinr_a2,lte_sinr_a3,nr_rsrp_a0,nr_rsrp_a1,nr_rsrp_a2,nr_rsrp_a3,nr_sinr_a0,nr_sinr_a1,nr_sinr_a2,nr_sinr_a3,dl,ul,p_sent,p_recv,p_avg,p_min,p_max,p_jit,temp,if_up,if_uptime,lat,lon,speed,sats,plmn,sub,sg"
 
 mkdir -p "$D" /tmp/glqos
+# Rows go to a RAM buffer first and reach the flash every FLUSH_S seconds, at midnight and on
+# stop: one append per batch instead of an ext4 commit every 5 s (about 12x fewer flash writes).
+# A power cut loses at most FLUSH_S seconds. q.cgi reads the buffer too.
+FLUSH_S=$(uci -q get glqos.main.flush_s); FLUSH_S=${FLUSH_S:-300}
+BUF=/tmp/glqos/buf.csv; BUFDAY=/tmp/glqos/buf.day
+flush() {
+	[ -s "$BUF" ] || return 0
+	day=$(cat "$BUFDAY" 2>/dev/null)
+	[ -n "$day" ] || day=$(date -d @"$(head -1 "$BUF" | cut -d, -f1)" +%Y-%m-%d)
+	f="$D/$day.csv"
+	[ -s "$f" ] || echo "$HEADER" > "$f"
+	cat "$BUF" >> "$f" && : > "$BUF"
+}
+trap 'flush; exit 0' TERM INT
+flush   # leftover from a collector that was killed
+last_flush=$(date +%s)
 # Today's file written by an older version: refresh the header (new columns are only ever appended).
 F="$D/$(date +%Y-%m-%d).csv"
 [ -s "$F" ] && [ "$(head -1 "$F")" != "$HEADER" ] && sed -i "1s/.*/$HEADER/" "$F"
@@ -107,9 +123,11 @@ while :; do
 		printf ",%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n", tmax, (up == "true" ? 1 : 0), upt, lat, lon, spd, (lat != "" ? sats : ""), (plmn == "-" ? "" : plmn), subid, sg
 	}')
 	TEMP=$(echo "$LINE" | cut -d, -f50)
-	F="$D/$(date +%Y-%m-%d).csv"
-	[ -s "$F" ] || echo "$HEADER" > "$F"
-	echo "$LINE" >> "$F"
+	today=$(date +%Y-%m-%d); F="$D/$today.csv"
+	# a new day starts: the buffer still holds the previous one
+	[ "$(cat "$BUFDAY" 2>/dev/null)" = "$today" ] || { flush; echo "$today" > "$BUFDAY"; }
+	echo "$LINE" >> "$BUF"
+	[ $((ts - last_flush)) -ge "$FLUSH_S" ] && { flush; last_flush=$ts; }
 	prx=$RX; ptx=$TX; pt=$t0
 	i=$((i + 1))
 	if [ $((i % 3600)) -eq 0 ]; then
