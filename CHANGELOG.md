@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.4.2 — 2026-11-11
+
+5G standalone (SA) support, for networks such as Free's "Free MAX" in France.
+
+- The dashboard showed an SA connection as "no service": SA is now a technology of its own in the
+  status bar, the technology strip (its own colour), the summary, the diagnosis, the events and the
+  NR cell list. The LTE anchor is hidden in SA, where there is none.
+- The collector reads the operator code from the SA serving cell (it was empty) and marks the NR
+  primary carrier, now shown as "Main 5G link".
+- Diagnosis judges the NR cell in SA (coverage, SINR, RSRQ, handovers, receive chains).
+- Receive chains below -130 dBm are ignored when comparing antennas: low bands use only two of the
+  four chains, which raised a false "receive chains apart" warning.
+
+## 1.4.1 — 2026-11-11
+
+- The RAM buffer is now written to flash when the router reboots or shuts down (stop script at
+  K10). In 1.4.0 the last minutes before a reboot were lost.
+
 ## 1.4.0 — 2026-11-11
 
 Less flash wear and less mobile data.

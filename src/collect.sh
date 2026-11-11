@@ -8,18 +8,24 @@ HEADER="ts,mode,lte_band,lte_earfcn,lte_pci,lte_cellid,lte_tac,lte_dlbw,lte_rsrp
 
 mkdir -p "$D" /tmp/glqos
 # Rows go to a RAM buffer first and reach the flash every FLUSH_S seconds, at midnight and on
-# stop: one append per batch instead of an ext4 commit every 5 s (about 12x fewer flash writes).
-# A power cut loses at most FLUSH_S seconds. q.cgi reads the buffer too.
+# stop, so the collector does not keep the flash busy on its own. A power cut loses at most
+# FLUSH_S seconds. q.cgi reads the buffer too. The init script also calls "collect.sh flush"
+# from its stop (K10 at shutdown), because at reboot the final kill comes too late.
 FLUSH_S=$(uci -q get glqos.main.flush_s); FLUSH_S=${FLUSH_S:-300}
 BUF=/tmp/glqos/buf.csv; BUFDAY=/tmp/glqos/buf.day
 flush() {
-	[ -s "$BUF" ] || return 0
+	(
+	flock 9
+	[ -s "$BUF" ] || exit 0
 	day=$(cat "$BUFDAY" 2>/dev/null)
 	[ -n "$day" ] || day=$(date -d @"$(head -1 "$BUF" | cut -d, -f1)" +%Y-%m-%d)
 	f="$D/$day.csv"
 	[ -s "$f" ] || echo "$HEADER" > "$f"
 	cat "$BUF" >> "$f" && : > "$BUF"
+	sync "$f" 2>/dev/null
+	) 9> /tmp/glqos/buf.lock
 }
+[ "$1" = flush ] && { flush; exit 0; }
 trap 'flush; exit 0' TERM INT
 flush   # leftover from a collector that was killed
 last_flush=$(date +%s)
@@ -70,7 +76,7 @@ while :; do
 		if (f[1] == "servingcell") {
 			if (f[3] == "LTE") { mode = "LTE"; lte(3) }
 			else if (f[3] == "NR5G-SA") {
-				mode = "SA"; nr_pci = v(f[8]); nr_arfcn = v(f[10]); nr_band = "n" v(f[11]); nr_bw = v(f[12])
+				mode = "SA"; plmn = v(f[5]) "-" v(f[6]); nr_pci = v(f[8]); nr_arfcn = v(f[10]); nr_band = "n" v(f[11]); nr_bw = v(f[12])
 				nr_rsrp = v(f[13]); nr_rsrq = v(f[14]); nr_sinr = v(f[15])
 			}
 		} else if (f[1] == "LTE") { if (mode == "") mode = "LTE"; lte(1) }
@@ -90,8 +96,9 @@ while :; do
 		} else if (b ~ /^NR5G/) {
 			# two layouts seen for NR carriers: short (8 fields) or long
 			tag = "n" num; can++
-			if (n <= 8) d = tag ":" v(f[5]) ":" v(f[6]) ":" v(f[7]) "::" v(f[3])
-			else d = tag ":" v(f[6]) ":" v(f[10]) ":" v(f[11]) "::" v(f[3])
+			pc = (f[1] == "PCC" ? "*" : "")
+			if (n <= 8) d = tag pc ":" v(f[5]) ":" v(f[6]) ":" v(f[7]) "::" v(f[3])
+			else d = tag pc ":" v(f[6]) ":" v(f[10]) ":" v(f[11]) "::" v(f[3])
 		} else next
 		if (f[1] == "PCC") tag = tag "*"
 		ca = (ca == "") ? tag : ca "+" tag

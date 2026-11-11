@@ -322,7 +322,7 @@ const RANGES = [["2 min", 120], ["5 min", 300], ["15 min", 900], ["1 h", 3600], 
 const RAW_MAX = 10800;
 const RB_MHZ = { 6: 1.4, 15: 3, 25: 5, 50: 10, 75: 15, 100: 20 };
 const NR_BW = { 0: 5, 1: 10, 2: 15, 3: 20, 4: 25, 5: 30, 6: 40, 7: 50, 8: 60, 9: 70, 10: 80, 11: 90, 12: 100, 13: 200, 14: 400 };
-const MODE_C = { LTE: "--s1", NSA: "--s2" };
+const MODE_C = { LTE: "--s1", NSA: "--s2", SA: "--s7" };
 // bands use s3 to s8 (s1/s2 belong to 4G/5G); 5G bands are drawn dashed
 const BAND_C = { B1: "--s3", B3: "--s4", B7: "--s5", B20: "--s6", B28: "--s7", n78: "--s8", n28: "--s7", n1: "--s3" };
 const bandColor = (b) => BAND_C[b] || "--s8";
@@ -346,7 +346,11 @@ function q(arr, p) {
   return a[lo] + (a[hi] - a[lo]) * (i - lo);
 }
 const median = (a) => q(a, 0.5);
-const ratName = (m) => m === "NSA" ? "5G NSA" : m === "LTE" ? "4G" : "no service";
+const ratName = (m) => m === "SA" ? "5G SA" : m === "NSA" ? "5G NSA" : m === "LTE" ? "4G" : "no service";
+const has5g = (r) => r.mode === "NSA" || r.mode === "SA";
+// serving cell: the LTE anchor, or the NR cell in standalone 5G
+const cellOf = (r) => r.lte_pci ? `${r.lte_band}/${r.lte_pci}` : r.mode === "SA" && r.nr_pci ? `${r.nr_band}/${r.nr_pci}` : null;
+const cellAt = (r) => r.lte_pci ? `${r.lte_band}/${r.lte_pci} at ${fmt(r.lte_rsrp)} dBm` : r.mode === "SA" && r.nr_pci ? `${r.nr_band}/${r.nr_pci} at ${fmt(r.nr_rsrp)} dBm` : NA;
 
 // ---------- data ----------
 function parse(text) {
@@ -365,7 +369,8 @@ function parse(text) {
     r.ccs = r.cc ? r.cc.split("|").map((s) => {
       const [b, pci, rsrp, rsrq, sinr, bw] = s.split(":");
       const band = b.replace("*", ""), nr = band.startsWith("n");
-      return { band, nr, pcc: b.includes("*"), pci, rsrp: rsrp === "" ? null : +rsrp, rsrq: rsrq === "" ? null : +rsrq, sinr: sinr === "" ? null : +sinr,
+      // NR primary carriers are only starred in "ca" by collectors before 1.4.2
+      return { band, nr, pcc: b.includes("*") || (r.ca || "").split("+").includes(band + "*"), pci, rsrp: rsrp === "" ? null : +rsrp, rsrq: rsrq === "" ? null : +rsrq, sinr: sinr === "" ? null : +sinr,
         mhz: nr ? (NR_BW[bw] ?? null) : (RB_MHZ[bw] ?? null) };
     }) : [];
     out.push(r);
@@ -411,7 +416,7 @@ const HELP = {
   temp: "Hottest modem sensor. Above about 75 °C the modem may throttle.",
   carriers: "Carrier aggregation: your connection combines several carriers at once. Each block is one carrier, its width proportional to its bandwidth; blue is 4G, orange 5G, the outlined block is the main link (PCC). More MHz means more capacity. Signal words come from RSRP (strength), lowered one step when RSRQ shows a busy or interfered cell.",
   ant: "Values of each receive chain (RX0 to RX3). Chains more than about 10 dB apart suggest a blocked, loose or badly oriented antenna. Unused chains show nothing.",
-  mode: "Technology over time: 4G only, or 4G plus 5G NSA (5G added on top of a 4G anchor). Short ticks are 4G handovers; tall accent lines are operator or SIM changes.",
+  mode: "Technology over time: 4G only, 4G plus 5G NSA (5G added on top of a 4G anchor), or 5G SA (standalone 5G, no 4G involved). Short ticks are handovers; tall accent lines are operator or SIM changes.",
   ccrsrp: "Signal of each aggregated carrier. Low bands (B20, B28) reach further; high bands (B7, n78) carry more but fade faster. 5G carriers are dashed.",
   ccn: "Number of aggregated carriers, 4G and 5G. Carriers come and go with load, coverage and traffic.",
 };
@@ -433,7 +438,7 @@ function status() {
   const cid = parseInt(r.lte_cellid, 16);
   const f = (label, v) => `<span><em>${label}</em><span class="fig">${v}</span></span>`;
   $("state").innerHTML = `${live}<span class="op">${opName(r)}</span><span class="rat">${ratName(r.mode)}</span>`
-    + f("Anchor", `${r.lte_band || NA}/${r.lte_pci || NA}`)
+    + (r.mode === "SA" ? "" : f("Anchor", `${r.lte_band || NA}/${r.lte_pci || NA}`))
     + (Number.isNaN(cid) ? "" : f("eNB", cid >> 8))
     + (r.nr_band ? f("NR", `${r.nr_band}/${r.nr_pci}`) : "")
     + f("SIM", r.sub || NA)
@@ -450,7 +455,7 @@ function carriers() {
   el.innerHTML = `<div class="cbar" aria-hidden="true">${r.ccs.map((c) => `<i class="${c.pcc ? "pcc" : ""}" style="--c:var(${c.nr ? "--s2" : "--s1"});flex-grow:${c.mhz || 10}"><b>${c.band}</b><small>${c.mhz ? c.mhz + " MHz" : NA}</small></i>`).join("")}</div>
     <table><tr><th>Band</th><th>Role</th><th class="n">Width</th><th>Signal</th><th class="n raw">RSRP</th><th class="n raw">RSRQ</th><th class="n raw">PCI</th></tr>
     ${r.ccs.map((c) => { const q = carrierQuality(c); return `<tr><td><span class="sw" style="--c:var(${bandColor(c.band)})"></span>${c.band}${BAND_FREQ[c.band] ? ` <span class="muted">(${BAND_FREQ[c.band]} MHz)</span>` : ""}</td>
-      <td>${c.pcc ? "Main 4G link" : c.nr ? "Extra 5G capacity" : "Extra 4G capacity"}</td><td class="n">${c.mhz ? c.mhz + " MHz" : NA}</td>
+      <td>${c.pcc ? (c.nr ? "Main 5G link" : "Main 4G link") : c.nr ? "Extra 5G capacity" : "Extra 4G capacity"}</td><td class="n">${c.mhz ? c.mhz + " MHz" : NA}</td>
       <td class="${q[1]}">${q[0]}</td><td class="n raw">${c.rsrp === null ? NA : fmt(c.rsrp) + " dBm"}</td><td class="n raw">${c.rsrq === null ? NA : fmt(c.rsrq) + " dB"}</td><td class="n raw">${c.pci || NA}</td></tr>`; }).join("")}</table>
     <p class="note">Low frequencies (700 and 800 MHz) reach far and through walls; high ones (2600 and 3500 MHz) carry the most data but fade faster. The main link carries the connection; the others only add capacity.</p>`;
 }
@@ -462,7 +467,7 @@ function freqMap() {
   if (!r || !rows.length) { el.innerHTML = ""; return; }
   const n = rows.length;
   const use = (b) => { if (!b) return null; let k = 0; const rs = []; for (const x of rows) { const c = x.ccs.find((y) => y.band === b); if (c) { k++; rs.push(c.rsrp); } } return { share: 100 * k / n, rsrp: median(rs) }; };
-  const now = (b) => { const c = b && r.ccs.find((y) => y.band === b); return c ? (c.pcc ? "main 4G link" : c.nr ? "extra 5G" : "extra 4G") : null; };
+  const now = (b) => { const c = b && r.ccs.find((y) => y.band === b); return c ? (c.pcc ? (c.nr ? "main 5G link" : "main 4G link") : c.nr ? "extra 5G" : "extra 4G") : null; };
   const bar = (u, c) => u && u.share > 0 ? `<span class="share"><i style="width:${Math.max(2, u.share)}%;background:var(${c})"></i></span><span class="fig">${fmt(u.share)} %</span>` : `<span class="muted">0 %</span>`;
   el.innerHTML = `<table class="fmap"><tr><th class="n">MHz</th><th>4G</th><th>5G</th><th>Now</th><th>4G use</th><th>5G use</th><th>Signal</th></tr>
     ${FREQS.map(([f, b4, b5]) => {
@@ -634,9 +639,9 @@ function draw() {
       for (let i = 1; i < rows.length; i++) {
         const a = rows[i - 1], b = rows[i], x = X(b.ts).toFixed(1);
         if (a.plmn && b.plmn && a.plmn !== b.plmn) out += `<line x1="${x}" x2="${x}" y1="${T}" y2="${T + ph}" stroke="${colors["--color-accent"]}" stroke-width="2"/>`;
-        else if (a.lte_pci && b.lte_pci && (a.lte_pci !== b.lte_pci || a.lte_earfcn !== b.lte_earfcn)) out += `<line x1="${x}" x2="${x}" y1="${T}" y2="${T + 6}" stroke="${colors["--color-ink"]}" stroke-width="1.5"/>`;
+        else if (cellOf(a) && cellOf(b) && (cellOf(a) !== cellOf(b) || a.lte_earfcn !== b.lte_earfcn)) out += `<line x1="${x}" x2="${x}" y1="${T}" y2="${T + 6}" stroke="${colors["--color-ink"]}" stroke-width="1.5"/>`;
       }
-      $("lg-mode").innerHTML = `<span class="box" style="--c:var(--s1)">4G</span><span class="box" style="--c:var(--s2)">5G NSA</span><span class="tick" style="--c:var(--color-ink)">4G handover</span><span class="tick" style="--c:var(--color-accent)">operator change</span>`;
+      $("lg-mode").innerHTML = `<span class="box" style="--c:var(--s1)">4G</span><span class="box" style="--c:var(--s2)">5G NSA</span><span class="box" style="--c:var(--s7)">5G SA</span><span class="tick" style="--c:var(--color-ink)">handover</span><span class="tick" style="--c:var(--color-accent)">operator change</span>`;
       $("cur-mode").textContent = last ? ratName(last.mode) : NA;
     } else {
       const nb = Math.max(60, Math.floor(pw / 1.5)), bw = (x1 - x0) / nb;
@@ -718,12 +723,12 @@ function hover(t, c) {
   if (!r || !c) { tip.style.display = "none"; return; }
   let h = `<b class="fig">${hhmmss(r.ts)}</b><div class="m">${opName(r)}, ${ratName(r.mode)}${step > 1 ? `, ${step} s aggregated` : ""}</div>`;
   if (c.d.strip) {
-    h += `<div class="r"><span>Anchor</span><span>${r.lte_band || NA}/${r.lte_pci || NA}, ${fmt(r.lte_rsrp)} dBm</span></div>`;
+    if (r.mode !== "SA") h += `<div class="r"><span>Anchor</span><span>${r.lte_band || NA}/${r.lte_pci || NA}, ${fmt(r.lte_rsrp)} dBm</span></div>`;
     if (r.nr_band) h += `<div class="r"><span>NR</span><span>${r.nr_band}/${r.nr_pci}, ${fmt(r.nr_rsrp)} dBm</span></div>`;
     h += `<div class="r"><span>CA</span><span class="code">${r.ca || NA}</span></div>`;
   } else {
     for (const s of c.ser) h += `<div class="r"><span>${s.name}</span><span>${fmt(s.get(r), c.d.dec || 0)} ${c.d.unit}</span></div>`;
-    h += `<div class="m">Anchor ${r.lte_band || ""}/${r.lte_pci || ""}${r.nr_band ? `, NR ${r.nr_band}/${r.nr_pci}` : ""}</div>`;
+    h += `<div class="m">${r.mode === "SA" ? `5G SA ${r.nr_band}/${r.nr_pci}` : `Anchor ${r.lte_band || ""}/${r.lte_pci || ""}${r.nr_band ? `, NR ${r.nr_band}/${r.nr_pci}` : ""}`}</div>`;
   }
   tip.innerHTML = h;
   tip.style.display = "block";
@@ -733,7 +738,7 @@ function hover(t, c) {
 }
 
 // ---------- events ----------
-const EV = ["Standby SIM", "Operator", "HO LTE", "HO NR", "NR added", "NR lost", "CA", "Loss", "Outage", "Reconnect", "Gap"];
+const EV = ["Standby SIM", "Operator", "HO LTE", "HO NR", "NR added", "NR lost", "Mode", "CA", "Loss", "Outage", "Reconnect", "Gap"];
 const EV_BAD = new Set(["Loss", "Outage", "NR lost", "Reconnect"]);
 function events() {
   const ev = [];
@@ -743,7 +748,7 @@ function events() {
   const closeOut = () => { if (!out) return; if (out.n >= 2) ev.push({ t: out.t, k: "Outage", d: `${fmtDur(out.n * step)} without a ping reply (${out.where})` }); out = null; };
   for (let i = 0; i < rows.length; i++) {
     const a = rows[i - 1], b = rows[i];
-    const where = `${opName(b)} ${b.lte_band || NA}/${b.lte_pci || NA} at ${fmt(b.lte_rsrp)} dBm`;
+    const where = `${opName(b)} ${cellAt(b)}`;
     if (b.p_sent === null) { if (!out) out = { t: b.ts, n: 0, where }; out.n++; } else closeOut();
     if (b.loss) { if (!run) run = { t: b.ts, lost: 0, sent: 0, where }; run.lost += b.p_sent - b.p_recv; run.sent += b.p_sent; run.last = b.ts; }
     else if (run && b.p_sent !== null) closeRun();
@@ -753,14 +758,16 @@ function events() {
     if (b.ts - a.ts > gapT) ev.push({ t: b.ts, k: "Gap", d: `${fmtDur(b.ts - a.ts)} without samples` });
     if (a.lte_pci && b.lte_pci && (a.lte_pci !== b.lte_pci || a.lte_earfcn !== b.lte_earfcn) && a.plmn === b.plmn)
       ev.push({ t: b.ts, k: "HO LTE", d: `${a.lte_band}/${a.lte_pci} (${fmt(a.lte_rsrp)} dBm, SINR ${fmt(a.lte_sinr)} dB) to ${b.lte_band}/${b.lte_pci} (${fmt(b.lte_rsrp)} dBm, SINR ${fmt(b.lte_sinr)} dB)` });
-    if (a.mode !== b.mode) {
+    if (a.mode !== b.mode && (a.mode === "SA" || b.mode === "SA"))
+      ev.push({ t: b.ts, k: "Mode", d: `${ratName(a.mode)} to ${ratName(b.mode)}${b.mode === "SA" ? ` on ${b.nr_band}/${b.nr_pci}` : ""}` });
+    else if (a.mode !== b.mode) {
       if (b.mode === "NSA") ev.push({ t: b.ts, k: "NR added", d: `${b.nr_band}/${b.nr_pci} at ${fmt(b.nr_rsrp)} dBm, SINR ${fmt(b.nr_sinr)} dB, anchor ${b.lte_band}/${b.lte_pci}` });
       else if (a.mode === "NSA") ev.push({ t: b.ts, k: "NR lost", d: `${a.nr_band}/${a.nr_pci}, last at ${fmt(a.nr_rsrp)} dBm, SINR ${fmt(a.nr_sinr)} dB` });
-    } else if (b.mode === "NSA" && a.nr_pci && b.nr_pci && a.nr_pci !== b.nr_pci)
+    } else if (has5g(b) && a.mode === b.mode && a.nr_pci && b.nr_pci && a.nr_pci !== b.nr_pci)
       ev.push({ t: b.ts, k: "HO NR", d: `${a.nr_band}/${a.nr_pci} to ${b.nr_band}/${b.nr_pci} at ${fmt(b.nr_rsrp)} dBm` });
     const sa = new Set(a.ccs.filter((c) => !c.pcc).map((c) => c.band)), sb = new Set(b.ccs.filter((c) => !c.pcc).map((c) => c.band));
     const add = [...sb].filter((x) => !sa.has(x)), rem = [...sa].filter((x) => !sb.has(x));
-    if ((add.length || rem.length) && a.lte_pci === b.lte_pci) ev.push({ t: b.ts, k: "CA", d: [add.length ? "added " + add.join(", ") : "", rem.length ? "removed " + rem.join(", ") : ""].filter(Boolean).join("; ") + ` (now <span class="code">${b.ca}</span>)` });
+    if ((add.length || rem.length) && cellOf(a) === cellOf(b)) ev.push({ t: b.ts, k: "CA", d: [add.length ? "added " + add.join(", ") : "", rem.length ? "removed " + rem.join(", ") : ""].filter(Boolean).join("; ") + ` (now <span class="code">${b.ca}</span>)` });
     if ((a.if_uptime !== null && b.if_uptime !== null && b.if_uptime < a.if_uptime) || (a.if_up === 1 && b.if_up !== 1)) ev.push({ t: b.ts, k: "Reconnect", d: `Data session restarted after ${fmtDur(a.if_uptime)}` });
   }
   closeRun(); closeOut();
@@ -785,22 +792,23 @@ function summary(ev) {
   $("t-sum").innerHTML = `<div class="cols">${Object.entries(ops).map(([op, rs]) => {
     const n = rs.length, dur = n * step, hours = dur / 3600;
     const share = (f) => 100 * rs.filter(f).length / n;
-    const nsa = share((r) => r.mode === "NSA"), lte = share((r) => r.mode === "LTE"), none = Math.max(0, 100 - nsa - lte);
+    const sa = share((r) => r.mode === "SA"), nsa = share((r) => r.mode === "NSA"), lte = share((r) => r.mode === "LTE"), none = Math.max(0, 100 - sa - nsa - lte);
     const sent = rs.reduce((s, r) => s + (r.p_sent || 0), 0), recv = rs.reduce((s, r) => s + (r.p_recv || 0), 0);
     const line = (lbl, f, dec = 0) => { const a = rs.map(f); return `<tr><td>${lbl}</td><td class="n">${fmt(q(a, 0.1), dec)}</td><td class="n">${fmt(q(a, 0.5), dec)}</td><td class="n">${fmt(q(a, 0.9), dec)}</td></tr>`; };
     const combos = {};
     for (const r of rs) combos[r.ca || NA] = (combos[r.ca || NA] || 0) + 1;
     const top = Object.entries(combos).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const ho = k(rs, "HO LTE");
+    // standalone 5G has no LTE cell: count NR handovers instead
+    const saOp = sa > 50, ho = k(rs, saOp ? "HO NR" : "HO LTE");
     const vol = rs.reduce((s, r) => s + (r.dl || 0) * step, 0) / 8;
     const kv = (label, v) => `<div><span>${label}</span><b>${v}</b></div>`;
     return `<div class="opsum"><h3>${op}, ${fmtDur(dur)}</h3>
-      <div><div class="bar100" aria-hidden="true"><i style="width:${nsa}%;background:var(--s2)"></i><i style="width:${lte}%;background:var(--s1)"></i><i style="width:${none}%;background:var(--color-crit)"></i></div>
-      <div class="lg"><span class="box" style="--c:var(--s2)">5G NSA ${fmt(nsa)} %</span><span class="box" style="--c:var(--s1)">4G ${fmt(lte)} %</span><span class="box" style="--c:var(--color-crit)">no service ${fmt(none)} %</span></div>
+      <div><div class="bar100" aria-hidden="true"><i style="width:${sa}%;background:var(--s7)"></i><i style="width:${nsa}%;background:var(--s2)"></i><i style="width:${lte}%;background:var(--s1)"></i><i style="width:${none}%;background:var(--color-crit)"></i></div>
+      <div class="lg">${sa ? `<span class="box" style="--c:var(--s7)">5G SA ${fmt(sa)} %</span>` : ""}<span class="box" style="--c:var(--s2)">5G NSA ${fmt(nsa)} %</span><span class="box" style="--c:var(--s1)">4G ${fmt(lte)} %</span><span class="box" style="--c:var(--color-crit)">no service ${fmt(none)} %</span></div>
       <div class="kv">
         ${kv("Loss (%)", fmt(sent ? Math.max(0, 100 * (sent - recv) / sent) : null, 2))}
-        ${kv(`4G handovers${hours >= 1 / 12 ? `, ${fmt(ho / hours)} per hour` : ""}`, ho)}
-        ${kv("NR added, lost", `${k(rs, "NR added")}, ${k(rs, "NR lost")}`)}
+        ${kv(`${saOp ? "5G" : "4G"} handovers${hours >= 1 / 12 ? `, ${fmt(ho / hours)} per hour` : ""}`, ho)}
+        ${saOp ? kv("Changes of technology", k(rs, "Mode")) : kv("NR added, lost", `${k(rs, "NR added")}, ${k(rs, "NR lost")}`)}
         ${kv("Outages", k(rs, "Outage"))}
         ${kv("Downloaded (MB)", fmt(vol, 0))}
         ${kv("Peak download (Mb/s)", fmt(Math.max(0, ...rs.map((r) => r.dl || 0)), 0))}
@@ -846,19 +854,22 @@ function diagnose() {
   const rttMed = median(vals(w1, (x) => x.p_avg)), maxs = vals(w1, (x) => x.p_max);
   const stalls = maxs.filter((v) => v > 500).length, worst = maxs.length ? Math.max(...maxs) : null;
   // radio
-  const rsrp = median(vals(w1, (x) => x.lte_rsrp)), sinr = median(vals(w1, (x) => x.lte_sinr)), rsrq = median(vals(w1, (x) => x.lte_rsrq));
+  // in standalone 5G there is no LTE cell: judge the NR one
+  const sa = r.mode === "SA", g = sa ? "5G" : "4G", pre = sa ? "nr_" : "lte_";
+  const rsrp = median(vals(w1, (x) => x[pre + "rsrp"])), sinr = median(vals(w1, (x) => x[pre + "sinr"])), rsrq = median(vals(w1, (x) => x[pre + "rsrq"]));
   const txp = median(vals(w1, (x) => x.txp));
-  const imb = median(w1.map((x) => { const a = [0, 1, 2, 3].map((i) => x["lte_rsrp_a" + i]).filter((v) => v !== null); return a.length > 1 ? Math.max(...a) - Math.min(...a) : null; }).filter((v) => v !== null));
+  // receive chains below -130 dBm are not used on this band (2 RX on low bands)
+  const imb = median(w1.map((x) => { const a = [0, 1, 2, 3].map((i) => x[pre + "rsrp_a" + i]).filter((v) => v !== null && v > -130); return a.length > 1 ? Math.max(...a) - Math.min(...a) : null; }).filter((v) => v !== null));
   // mobility: handovers and ping-pong between two cells
   const seq = [];
-  for (const x of w5) { const k = x.lte_pci ? `${x.lte_band}/${x.lte_pci}` : null; if (k && k !== seq[seq.length - 1]?.k) seq.push({ k, t: x.ts }); }
+  for (const x of w5) { const k = cellOf(x); if (k && k !== seq[seq.length - 1]?.k) seq.push({ k, t: x.ts }); }
   const ho5 = Math.max(0, seq.length - 1), hoMin = ho5 / (span5 / 60);
   const hoW1 = seq.filter((c, i) => i > 0 && c.t >= r.ts - 60).length;
   let pp = 0, ppPair = "";
   for (let i = 2; i < seq.length; i++) if (seq[i].k === seq[i - 2].k && seq[i].t - seq[i - 2].t <= 30) { pp++; ppPair = `${seq[i - 1].k} and ${seq[i].k}`; }
   // 5G
-  const nsaShare = w5.length ? w5.filter((x) => x.mode === "NSA").length / w5.length : 0;
-  let nrFlips = 0; for (let i = 1; i < w5.length; i++) if ((w5[i].mode === "NSA") !== (w5[i - 1].mode === "NSA")) nrFlips++;
+  const nsaShare = w5.length ? w5.filter(has5g).length / w5.length : 0;
+  let nrFlips = 0; for (let i = 1; i < w5.length; i++) if (has5g(w5[i]) !== has5g(w5[i - 1])) nrFlips++;
 
   if (age > 10) add(3, `No fresh data for ${fmtDur(age)}`, "the router or the collector is not responding");
   if (!r.mode) add(3, "No mobile service", "out of coverage, or a SIM or modem problem");
@@ -868,8 +879,8 @@ function diagnose() {
   if (stalls >= 10 || (worst !== null && worst > 2000)) add(3, `Link stalls: ${stalls} s above 500 ms in the last minute, worst ${fmt(worst)} ms`, "traffic freezes for moments, then catches up");
   else if (stalls >= 1) add(2, `Latency spikes: ${stalls} s above 500 ms in the last minute, worst ${fmt(worst)} ms`, "");
   if (rttMed !== null && rttMed > 100) add(2, `High baseline latency, median ${fmt(rttMed)} ms`, "a loaded cell, a weak uplink or a long path to the ping target");
-  if (rsrp !== null && rsrp < -110) add(3, `Weak 4G coverage, RSRP ${fmt(rsrp)} dBm`, "cell edge, indoors or vehicle shielding; an external antenna or a spot near a window helps");
-  else if (rsrp !== null && rsrp < -100) add(2, `Modest 4G signal, RSRP ${fmt(rsrp)} dBm`, "");
+  if (rsrp !== null && rsrp < -110) add(3, `Weak ${g} coverage, RSRP ${fmt(rsrp)} dBm`, "cell edge, indoors or vehicle shielding; an external antenna or a spot near a window helps");
+  else if (rsrp !== null && rsrp < -100) add(2, `Modest ${g} signal, RSRP ${fmt(rsrp)} dBm`, "");
   if (rsrp !== null && sinr !== null && rsrp >= -95 && sinr < 5) add(2, `Strong signal but low SINR, ${fmt(sinr)} dB`, "interference or overlapping cells limit throughput despite good coverage");
   else if (rsrq !== null && rsrp !== null && rsrq < -14 && rsrp >= -100) add(2, `Low RSRQ, ${fmt(rsrq)} dB, with a decent signal`, "the cell is probably busy");
   if (r.mode === "NSA" && r.nr_sinr !== null && r.nr_sinr < 0) add(2, `5G attached on ${r.nr_band} but poor, SINR ${fmt(r.nr_sinr)} dB`, "the 5G carrier may add little");
@@ -877,7 +888,7 @@ function diagnose() {
   else if (nsaShare === 0 && w5.length > 60) add(0, "4G only for the last 5 minutes", "no 5G here, or the network did not add it");
   if (hoMin >= 3) add(2, `Frequent handovers, ${fmt(hoMin, 1)} per minute`, pp >= 2 ? `ping-pong between ${ppPair}` : "fast travel or a cell edge");
   else if (ho5 > 0) add(0, `${ho5} handover${ho5 > 1 ? "s" : ""} in 5 min`, "");
-  if (imb !== null && imb >= 10) add(2, `4G receive chains ${fmt(imb)} dB apart`, "an antenna may be blocked, loose or badly oriented");
+  if (imb !== null && imb >= 10) add(2, `${g} receive chains ${fmt(imb)} dB apart`, "an antenna may be blocked, loose or badly oriented");
   if (txp !== null && txp >= 21) add(2, `Uplink at high power, ${fmt(txp, 1)} dBm`, "far from the cell, so uploads and latency suffer");
   if (r.temp !== null && r.temp >= 75) add(r.temp >= 85 ? 3 : 2, `Modem hot, ${fmt(r.temp)} °C`, "it may throttle; keep it ventilated and out of direct sun");
   if (r.sg === "on") add(2, "Standby SIM awake", "expect stalls until it is put back to sleep");
@@ -886,7 +897,7 @@ function diagnose() {
   const shown = items.filter((i) => i.sev >= 2).sort((a, b) => b.sev - a.sev);
   const notes = items.filter((i) => i.sev === 0).slice(0, 2);
   const mhz = r.ccs.reduce((s, c) => s + (c.mhz || 0), 0);
-  const nr = r.mode === "NSA" ? `5G NSA on ${r.nr_band}` : ratName(r.mode);
+  const nr = has5g(r) ? `${ratName(r.mode)} on ${r.nr_band}` : ratName(r.mode);
   const li = (i, cls, lead) => `<li class="${cls}">${lead ? `<b>${lead}.</b> ` : ""}${i.text}${i.hint ? ` <span class="why">(${i.hint})</span>` : ""}</li>`;
   el.innerHTML = `<p>Last minute: ${opName(r)}, ${nr}, ${r.ccs.length} carrier${r.ccs.length > 1 ? "s" : ""} (${mhz} MHz), RTT ${fmt(rttMed)} ms, loss ${fmt(loss, 1)} %.</p>
     <ul>${shown.length ? shown.map((i) => li(i, "s" + i.sev, i.sev >= 3 ? "Problem" : "Watch")).join("") : "<li>Nothing to report.</li>"}${notes.map((i) => li(i, "note", "")).join("")}</ul>`;
@@ -899,7 +910,7 @@ function render() {
   if (!$("t-ev").hidden) eventsUI(ev);
   if (!$("t-cells").hidden) {
     cells("cells-lte", (r) => r.lte_pci ? `${opName(r)} ${r.lte_band}/${r.lte_pci} eNB ${Number.isNaN(parseInt(r.lte_cellid, 16)) ? "?" : parseInt(r.lte_cellid, 16) >> 8}` : null, (r) => r.lte_rsrp, (r) => r.lte_sinr, (r) => r.lte_rsrq);
-    cells("cells-nr", (r) => r.mode === "NSA" && r.nr_pci ? `${opName(r)} ${r.nr_band}/${r.nr_pci}` : null, (r) => r.nr_rsrp, (r) => r.nr_sinr, (r) => r.nr_rsrq);
+    cells("cells-nr", (r) => has5g(r) && r.nr_pci ? `${opName(r)} ${r.nr_band}/${r.nr_pci}` : null, (r) => r.nr_rsrp, (r) => r.nr_sinr, (r) => r.nr_rsrq);
   }
   if (pointer) hoverFromPointer();
 }

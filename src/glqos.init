@@ -1,7 +1,13 @@
 #!/bin/sh /etc/rc.common
 # glqos: 1 Hz radio/IP collector, 5 Hz pinger and live dashboard (uhttpd).
 START=99
+STOP=10
 USE_PROCD=1
+
+# write the collector's RAM buffer to flash before the processes are killed
+stop_service() {
+	/etc/glqos/collect.sh flush
+}
 
 start_service() {
 	config_load glqos
