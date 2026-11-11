@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.3 — 2026-11-11
+
+- The "receive chains apart" warning is only raised on bands of 1 GHz and above. Below 1 GHz the
+  modem uses two receive chains and the second one is structurally much weaker (often 20 dB or
+  more on B20, measured on a GL-E5800), so the warning was a false alarm nobody could act on.
+
 ## 1.4.2 — 2026-11-11
 
 5G standalone (SA) support, for networks such as Free's "Free MAX" in France.

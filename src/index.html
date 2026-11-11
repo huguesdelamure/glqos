@@ -888,7 +888,10 @@ function diagnose() {
   else if (nsaShare === 0 && w5.length > 60) add(0, "4G only for the last 5 minutes", "no 5G here, or the network did not add it");
   if (hoMin >= 3) add(2, `Frequent handovers, ${fmt(hoMin, 1)} per minute`, pp >= 2 ? `ping-pong between ${ppPair}` : "fast travel or a cell edge");
   else if (ho5 > 0) add(0, `${ho5} handover${ho5 > 1 ? "s" : ""} in 5 min`, "");
-  if (imb !== null && imb >= 10) add(2, `${g} receive chains ${fmt(imb)} dB apart`, "an antenna may be blocked, loose or badly oriented");
+  // Below 1 GHz the modem uses two receive chains and the second one is structurally much weaker
+  // (often 20 dB or more on B20): only judge the antennas on the higher bands, where all four are used.
+  const servBand = sa ? r.nr_band : r.lte_band;
+  if (imb !== null && imb >= 10 && (BAND_FREQ[servBand] || 0) >= 1000) add(2, `${g} receive chains ${fmt(imb)} dB apart`, "an antenna may be blocked, loose or badly oriented");
   if (txp !== null && txp >= 21) add(2, `Uplink at high power, ${fmt(txp, 1)} dBm`, "far from the cell, so uploads and latency suffer");
   if (r.temp !== null && r.temp >= 75) add(r.temp >= 85 ? 3 : 2, `Modem hot, ${fmt(r.temp)} °C`, "it may throttle; keep it ventilated and out of direct sun");
   if (r.sg === "on") add(2, "Standby SIM awake", "expect stalls until it is put back to sleep");
