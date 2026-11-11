@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 — 2026-11-11
+
+- `glqos-simguard`: upgrading or reinstalling the package no longer wakes the standby SIM up
+  (only a real removal does). The wake-up caused a few minutes of stalls after each upgrade.
+
 ## 1.1.0 — 2026-11-11
 
 First public release.

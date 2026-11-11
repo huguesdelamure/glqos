@@ -2,7 +2,7 @@
 # Builds the glqos and glqos-simguard opkg packages (architecture "all") into dist/.
 # Usage: ./build-ipk.sh
 set -e
-VERSION=1.1.0-1
+VERSION=1.1.1-1
 MAINTAINER="Hugues Voiturier <16280457+huguesdelamure@users.noreply.github.com>"
 URL="https://github.com/huguesdelamure/glqos"
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -103,11 +103,13 @@ cat > $C/postinst <<'EOF'
 /etc/init.d/glqos-simguard restart
 exit 0
 EOF
-# On removal, wake the standby SIM up again so the router is back to stock behaviour.
+# On removal (not on upgrade/reinstall), wake the standby SIM up again so the router is
+# back to stock behaviour. opkg sets PKG_UPGRADE=1 when the package is being replaced.
 cat > $C/prerm <<'EOF'
 #!/bin/sh
 [ -n "$IPKG_INSTROOT" ] && exit 0
 /etc/init.d/glqos-simguard stop
+[ "$PKG_UPGRADE" = "1" ] && exit 0
 /etc/init.d/glqos-simguard disable
 data_sub=$(cut -d' ' -f2 /tmp/glqos/simguard.state 2>/dev/null)
 case "$data_sub" in 1|2) gl_modem -B cpu -U $((3 - data_sub)) AT 'AT+COPS=0' >/dev/null 2>&1 ;; esac
