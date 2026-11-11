@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+# glqos-simguard: keeps the standby SIM deregistered and fails over on outage (GL-E5800 only).
+START=99
+USE_PROCD=1
+
+start_service() {
+	if ! grep -qi 'e5800' /tmp/sysinfo/model 2>/dev/null; then
+		logger -t glqos-simguard "unsupported model ($(cat /tmp/sysinfo/model 2>/dev/null)), not starting"
+		return 0
+	fi
+	procd_open_instance
+	procd_set_param command /bin/sh /etc/glqos/simguard.sh
+	procd_set_param respawn 3600 5 0
+	procd_close_instance
+}
+
+service_triggers() {
+	procd_add_reload_trigger glqos
+}
