@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0 — 2026-11-11
+
+Network-analyzer look (Hallmark 2.0 restyle, Console theme); the layout is unchanged.
+
+- Hairline panels cut from one graphite surface, charts on the deepest step, no shadows or glow.
+- Bundled fonts so the page still works offline: Host Grotesk for labels, Atkinson Hyperlegible Mono
+  for every measured value (SIL Open Font License 1.1).
+- Colour meanings from the theme: cool blue for the instrument and 5G, neutral for 4G, amber for what
+  needs your attention, green and red for status only.
+- Light theme in the theme's warm, high-contrast paper colourway; dark in graphite.
+
 ## 1.2.0 — 2026-11-11
 
 Dashboard redesign.

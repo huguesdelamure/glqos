@@ -119,4 +119,4 @@ Pure shell, awk and a static HTML page: the packages are architecture-independen
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The bundled fonts, Host Grotesk and Atkinson Hyperlegible Mono, are under the SIL Open Font License 1.1 (`src/fonts/OFL-*.txt`).

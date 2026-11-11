@@ -126,4 +126,4 @@ Uniquement du shell, de l'awk et une page HTML statique : les paquets sont indé
 
 ## Licence
 
-[MIT](LICENSE)
+[MIT](LICENSE). Les polices embarquées, Host Grotesk et Atkinson Hyperlegible Mono, sont sous licence SIL Open Font License 1.1 (`src/fonts/OFL-*.txt`).

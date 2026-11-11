@@ -2,7 +2,7 @@
 # Builds the glqos and glqos-simguard opkg packages (architecture "all") into dist/.
 # Usage: ./build-ipk.sh
 set -e
-VERSION=1.2.0-1
+VERSION=1.3.0-1
 MAINTAINER="Hugues Voiturier <16280457+huguesdelamure@users.noreply.github.com>"
 URL="https://github.com/huguesdelamure/glqos"
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -29,6 +29,8 @@ mkdir -p $D/etc/glqos/www/cgi-bin $D/etc/init.d $D/etc/config $D/lib/upgrade/kee
 install -m 755 $SRC/collect.sh $SRC/pinger.sh $D/etc/glqos/
 install -m 644 $SRC/index.html $D/etc/glqos/www/index.html
 install -m 755 $SRC/q.cgi $D/etc/glqos/www/cgi-bin/q
+mkdir -p $D/etc/glqos/www/fonts
+install -m 644 $SRC/fonts/*.woff2 $SRC/fonts/OFL-*.txt $D/etc/glqos/www/fonts/
 install -m 755 $SRC/glqos.init $D/etc/init.d/glqos
 install -m 644 $SRC/glqos.config $D/etc/config/glqos
 # kept across GL A/B firmware upgrades (abfota_update reads /lib/upgrade/keep.d)
