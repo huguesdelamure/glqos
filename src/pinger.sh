@@ -4,6 +4,16 @@
 # Losses are derived from sequence-number gaps.
 TARGET=$(uci -q get glqos.main.ping_target); TARGET=${TARGET:-8.8.8.8}
 mkdir -p /tmp/glqos
+# procd only signals this shell, and starts it with SIGPIPE ignored, so ping would survive
+# awk forever: on stop, kill every child (ping and awk) explicitly.
+pid=
+stop() {
+	for f in /proc/[0-9]*/stat; do
+		read -r p _ _ pp _ < "$f" 2>/dev/null && [ "$pp" = "$$" ] && kill "$p" 2>/dev/null
+	done
+	exit 0
+}
+trap stop TERM INT
 while :; do
 	ping -i 0.2 -W 1 "$TARGET" 2>/dev/null | awk '
 	function flush() {
@@ -23,6 +33,9 @@ while :; do
 		if (mx == "" || x > mx) mx = x
 		if (prev != "") { d = x - prev; j += (d < 0 ? -d : d); nj++ }
 		prev = x
-	}'
+	}' &
+	pid=$!
+	wait $pid
+	pid=
 	sleep 1
 done

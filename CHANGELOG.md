@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1 — 2026-11-11
+
+- `glqos`: restarting the service no longer leaves the previous `ping` running. Each restart
+  added one more 5 Hz ping writing to the same file, which skewed the loss figures.
+- `glqos-simguard`: after a restart the guard asks the modem whether the standby SIM is asleep
+  instead of reporting it awake for two minutes.
+
 ## 1.3.0 — 2026-11-11
 
 Network-analyzer look (Hallmark 2.0 restyle, Console theme); the layout is unchanged.

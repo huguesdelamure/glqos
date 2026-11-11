@@ -7,6 +7,11 @@ chaque seconde, pingue une cible cinq fois par seconde et sert sur le LAN un das
 historique. Un second paquet, facultatif, `glqos-simguard`, corrige la perte de paquets causée par la
 deuxième SIM (voir [Pourquoi la deuxième SIM pose problème](#pourquoi-la-deuxième-sim-pose-problème)).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img alt="Dashboard glqos : 5G NSA sur Orange avec six porteuses agrégées, carte des fréquences, mesures en direct et 15 minutes d'historique radio et transport" src="docs/screenshot-light.png">
+</picture>
+
 Projet indépendant, sans lien avec GL.iNet ni Quectel.
 
 ## Fonctions

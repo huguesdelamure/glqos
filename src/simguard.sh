@@ -50,10 +50,15 @@ while :; do
 			at $u 'AT+CGPADDR' | grep -q "\"$IP\"" && { new=$u; break; }
 		done
 		if [ -n "$new" ] && [ "$new" != "$data_sub" ]; then
-			[ -n "$data_sub" ] && log "data moved from SIM $data_sub to SIM $new"
+			if [ -n "$data_sub" ]; then
+				log "data moved from SIM $data_sub to SIM $new"
+				# the previous data SIM stays registered until we put it to sleep
+				standby=on
+			else
+				# first detection after (re)start: ask the modem instead of assuming
+				if at $((3 - new)) 'AT+COPS?' | grep -q '+COPS: 2'; then standby=off; else standby=on; fi
+			fi
 			data_sub=$new; healthy_since=
-			# the previous data SIM stays registered until we put it to sleep
-			standby=on
 		fi
 		pip=$IP; new=
 	fi

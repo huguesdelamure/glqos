@@ -7,6 +7,11 @@ RG650V modem every second, pings a target five times per second, and serves a li
 dashboard on the LAN with history. An optional second package, `glqos-simguard`, fixes
 the packet loss caused by the second SIM (see [Why the second SIM hurts](#why-the-second-sim-hurts)).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img alt="glqos dashboard: 5G NSA on Orange with six aggregated carriers, frequency map, live meters and 15 minutes of radio and transport history" src="docs/screenshot-light.png">
+</picture>
+
 Not affiliated with GL.iNet or Quectel.
 
 ## Features
