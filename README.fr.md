@@ -18,10 +18,14 @@ Projet indépendant, sans lien avec GL.iNet ni Quectel.
 - **Ping à 5 Hz** vers une cible réglable : RTT, gigue, perte (déduite des trous de séquence).
 - **Débit écoulé** d'après les compteurs rmnet, état de la session data, opérateur (MCC-MNC), SIM active.
 - **Dashboard en direct** (`http://<IP LAN du routeur>:8088/`), rafraîchi chaque seconde, sans dépendance
-  externe (fonctionne quand le lien est coupé) : chaîne des porteuses, jauges à zones de qualité, courbes
-  empilées et synchronisées, événements (handovers, NR ajouté ou perdu, changements d'agrégation, rafales de
-  pertes, coupures, reconnexions, changements d'opérateur), statistiques par cellule, synthèse par opérateur.
-  Fenêtres de 2 minutes à 7 jours.
+  externe (fonctionne quand le lien est coupé), thèmes clair et sombre :
+  - un **diagnostic** en langage clair de la dernière minute, qui ne liste que ce qui mérite l'attention, avec la cause probable ;
+  - une **carte des fréquences** (700 à 3500 MHz) : ce qui est utilisé maintenant et à quelle fréquence sur la période ;
+  - les **porteuses** agrégées avec fréquence, rôle, largeur et un mot pour le signal, lisibles par tous ;
+  - chiffres en direct, courbes empilées et synchronisées, événements (handovers, NR ajouté ou perdu, changements
+    d'agrégation, rafales de pertes, coupures, reconnexions, changements d'opérateur), statistiques par cellule
+    et synthèse par opérateur ;
+  - une explication derrière chaque libellé. Fenêtres de 2 minutes à 7 jours.
 - **Historique** dans `/data/glqos` : un CSV par jour, jours passés compressés en gzip (~4 Mo/jour au lieu de ~19), 30 jours par défaut.
 - **Survit aux mises à jour du firmware** : les fichiers sont déclarés dans `/lib/upgrade/keep.d`, que la mise à
   jour A/B de GL (`abfota_update`) restaure ; l'historique est sur `/data`, que les mises à jour n'effacent pas.

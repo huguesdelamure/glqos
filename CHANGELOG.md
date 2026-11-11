@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0 — 2026-11-11
+
+Dashboard redesign.
+
+- Plain-language diagnosis of the last minute: only what needs attention (loss, stalls, weak coverage,
+  interference, busy cell, handover ping-pong, unstable 5G, unbalanced antennas, uplink at high power,
+  hot modem, standby SIM awake), with the likely cause; "Nothing to report" otherwise.
+- Frequency map: which frequencies (700 to 3500 MHz) are in use now and how often over the selected range.
+- Carrier table readable without expertise: frequency, role, width and a signal word; raw values kept for experts.
+- Explanations behind every metric and chart label.
+- Light theme with high contrast for sunlight; follows the OS, or forced from the header.
+- Flattened layout, one surface and one radius; stats row instead of cards; consistent colours
+  (blue = 4G, orange = 5G only); denser and readable on phones.
+
 ## 1.1.1 — 2026-11-11
 
 - `glqos-simguard`: upgrading or reinstalling the package no longer wakes the standby SIM up

@@ -17,9 +17,13 @@ Not affiliated with GL.iNet or Quectel.
 - **5 Hz ping** to a configurable target: RTT, jitter, loss (from sequence gaps).
 - **Carried throughput** from the rmnet counters, data session state, operator (MCC-MNC), active SIM.
 - **Live dashboard** (`http://<router LAN IP>:8088/`), refreshed every second, no external dependency
-  (works when the uplink is down): carrier chain, gauges with quality zones, stacked synchronised charts,
-  events (handovers, NR added/lost, CA changes, loss bursts, outages, reconnections, operator switches),
-  per-cell statistics, per-operator summary. Ranges from 2 minutes to 7 days.
+  (works when the uplink is down), light and dark themes:
+  - a plain-language **diagnosis** of the last minute that lists only what needs attention, with the likely cause;
+  - a **frequency map** (700 to 3500 MHz): what is in use now and how often over the selected range;
+  - the aggregated **carriers** with frequency, role, width and a signal word anyone can read;
+  - live figures, stacked synchronised charts, events (handovers, NR added/lost, CA changes, loss bursts,
+    outages, reconnections, operator switches), per-cell statistics and a per-operator summary;
+  - an explanation behind every label. Ranges from 2 minutes to 7 days.
 - **History** in `/data/glqos`: one CSV per day, past days gzip-compressed (~4 MB/day instead of ~19), 30 days by default.
 - **Survives firmware upgrades**: files are declared in `/lib/upgrade/keep.d`, which GL's A/B upgrade
   (`abfota_update`) restores; history lives on `/data`, which upgrades do not wipe.
