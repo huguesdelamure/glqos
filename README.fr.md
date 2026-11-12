@@ -20,7 +20,8 @@ Projet indépendant, sans lien avec GL.iNet ni Quectel.
   techno (LTE / NR NSA), cellule de service (bande, PCI, EARFCN, eNB, TAC), RSRP / RSRQ / SINR / RSSI / CQI /
   puissance d'émission, RSRP et SINR par antenne (4 chaînes de réception, LTE et NR), chaque porteuse agrégée,
   température du modem.
-- **Ping à 5 Hz** vers une cible réglable : RTT, gigue, perte (déduite des trous de séquence). Paquets
+- **Ping à 5 Hz** vers une cible réglable : RTT, gigue, perte (déduite des trous de séquence). Le ping
+  est lié à l'interface cellulaire : il mesure toujours le lien cellulaire en mode répéteur ou WAN Ethernet. Paquets
   minimaux (36 octets) : environ 31 Mo de data mobile par jour, 0,9 Go par mois si le routeur tourne en permanence.
 - **Débit écoulé** d'après les compteurs rmnet, état de la session data, opérateur (MCC-MNC), SIM active.
 - **Dashboard en direct** (`http://<IP LAN du routeur>:8088/`), rafraîchi chaque seconde, sans dépendance

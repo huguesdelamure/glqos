@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.4 — 2026-11-12
+
+- The 5 Hz ping is bound to the cellular interface. In repeater (Wi-Fi uplink) or Ethernet WAN mode
+  the default route is another uplink: the dashboard showed that link's latency and loss next to the
+  cellular radio figures, and a Wi-Fi uplink outage could make `glqos-simguard` wake the standby SIM
+  for nothing. The ping keeps using mobile data in those modes (about 0.9 GB per month non-stop).
+
 ## 1.4.3 — 2026-11-11
 
 - The "receive chains apart" warning is only raised on bands of 1 GHz and above. Below 1 GHz the

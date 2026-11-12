@@ -19,7 +19,8 @@ Not affiliated with GL.iNet or Quectel.
 - **1 Hz radio sampling** in a single AT call (`AT+QENG`, `QCAINFO`, `QRSRP`, `QSINR`; `QTEMP` every 10 s):
   RAT (LTE / NR NSA), serving cell (band, PCI, EARFCN, eNB, TAC), RSRP / RSRQ / SINR / RSSI / CQI / Tx power,
   per-antenna RSRP and SINR (4 RX chains, LTE and NR), every aggregated carrier, modem temperature.
-- **5 Hz ping** to a configurable target: RTT, jitter, loss (from sequence gaps). Minimal packets
+- **5 Hz ping** to a configurable target: RTT, jitter, loss (from sequence gaps). The ping is bound to
+  the cellular interface, so it keeps measuring the cellular link in repeater or Ethernet WAN mode. Minimal packets
   (36 bytes): about 31 MB of mobile data per day, 0.9 GB per month if the router runs around the clock.
 - **Carried throughput** from the rmnet counters, data session state, operator (MCC-MNC), active SIM.
 - **Live dashboard** (`http://<router LAN IP>:8088/`), refreshed every second, no external dependency

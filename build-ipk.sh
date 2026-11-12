@@ -2,7 +2,7 @@
 # Builds the glqos and glqos-simguard opkg packages (architecture "all") into dist/.
 # Usage: ./build-ipk.sh
 set -e
-VERSION=1.4.3-1
+VERSION=1.4.4-1
 MAINTAINER="Hugues Voiturier <16280457+huguesdelamure@users.noreply.github.com>"
 URL="https://github.com/huguesdelamure/glqos"
 HERE=$(cd "$(dirname "$0")" && pwd)
